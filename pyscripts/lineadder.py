@@ -1,11 +1,11 @@
 from os import listdir, getcwd, remove
 from os.path import isfile, join
 import time
+from sys import argv
 
 line_to_add_in_file = '#include "./../../utility/Tracker.h"'
 line_to_add_in_func = 'Tracker __t(std::string(__FUNCTION__));'
 ignore_files = ['Tracker.h', 'Tracker.cpp']
-
 
 def stripcomments(__in_filename, __out_filename):
     c = ''
@@ -104,92 +104,87 @@ def lineadder(__line_to_add_in_file, __line_to_add_in_func, __in_filename, __out
                 c = _in.read(1)
                 if not c:
                     break
-                while iswhitespace(c):
-                    if iswhitespace(c):
-                        _out.write(c)
-                        cur_pos = _in.tell()
-                        c = _in.read(1)
-                    else:
-                        _in.seek(cur_pos)
-                if c == '"':
+                while iswhitespace(c):              # keeps traversing till a none whitespace character is encountered
                     _out.write(c)
-                    while True:
+                    c = _in.read(1)
+                if c == '"':                        # if the character is a double quote ... (string)
+                    _out.write(c)
+                    while True:                     # ... keep traversing ...
                         c = _in.read(1)
                         _out.write(c)
-                        if c == '\\':
+                        if c == '\\':               # ignore the character that comes after backslash
                             c = _in.read(1)
-                            _out.write(c)
+                            _out.write(c)           # ... until the next double quote is encountered.
                         elif c == '"':
                             break
-                elif c == '#':
+                elif c == '#':                      # if charcter is # ... (macros)
                     _out.write(c)
-                    while True:
+                    while True:                     # ... keep traversing ...
                         c = _in.read(1)
                         _out.write(c)
-                        if c == '\\':
+                        if c == '\\':               # ignore the character that comes after backslash
                             c = _in.read(1)
                             _out.write(c)
-                        elif c == '\n':
+                        elif c == '\n':             # ... till new line character is encountered.
                             break
-                elif isalpha(c):
+                elif isalpha(c):                    # is the character is an alphabet ...
                     _out.write(c)
-                    word = ''
+                    word = ''                   
                     word += c
-                    c = _in.read(1)
-                    if iswhitespace(c):
+                    cur_pos = _in.tell()
+                    c = _in.read(1)                 # ... read the next character ....
+                    if iswhitespace(c):             # ... to see if it is whitespace
                         _out.write(c)
-                        pass
-                    elif isalnum(c):
-                        while isalnum(c):
+                    elif isalnum(c):                # if the next character is alnum
+                        while isalnum(c):           # as long as the next character is alnum
                             _out.write(c)
-                            word += c
+                            word += c               # keep appending the word with the character (we capture a token which is not a string nor a macro definition)
                             cur_pos = _in.tell()
                             c = _in.read(1)
                         _in.seek(cur_pos)
-                    else:
-                        _out.write(c)
-                        pass
-                elif c == '(':
+                    else:                           # if the next character is not alnum nor whitespace ...
+                        _in.seek(cur_pos)           # ... start over and re-read the character
+                elif c == '(':                      # if the character is an open parenthesis ...
                     _out.write(c)
-                    if word not in ignore_words:
-                        paran_pass = True
-                        paran_count += 1
-                        while paran_count != 0:
-                            c = _in.read(1)
-                            _out.write(c)
-                            if c == '(':
-                                paran_count += 1
-                            elif c == ')':
-                                paran_count -= 1
-                elif c == ';' and paran_pass == True:
+                    if word not in ignore_words:    # if the captured word is not in ignored words list ...
+                        paran_pass = True           # set paran pass to True (possible function block upcoming) -> WORD ( ... 
+                        paran_count += 1            
+                    while paran_count != 0:         # traverse until parenthesis balanced -> WORD (())
+                        c = _in.read(1)
+                        _out.write(c)
+                        if c == '(':
+                            paran_count += 1
+                        elif c == ')':
+                            paran_count -= 1
+                elif c == ';' and paran_pass == True:   # if ; encountered -> WORD (()) ; <- possible function call.
                     _out.write(c)
                     paran_pass = False
-                elif (c == ':' or c == ',') and paran_pass == True:
+                elif (c == ':' or c == ',') and paran_pass == True: # : or , <- Initializer list
                     _out.write(c)
                     cur_pos = _in.tell()
                     c = _in.read(1)
-                    if c == ':':
+                    if c == ':':                    # -> WORD (()) :: or WORD (()) ,:  [?] - dunno if this is ever entered.
                         _out.write(c)
                         pass
                     else:
                         _in.seek(cur_pos)
-                        while c != '(' and c != '{' and c != ';':
+                        while c != '(' and c != '{' and c != ';':   # ( { ;
                             c = _in.read(1)
                             _out.write(c)
-                        if c == '(':
-                            while c != ')':
+                        if c == '(':                # WORD (()) : x (
+                            while c != ')':         # WORD (()) : x ( .. ) <- doesn't handle WORD : x ({()})
                                 c = _in.read(1)
                                 _out.write(c)
-                        elif c == '}':
-                            while c != '}':
+                        elif c == '}':              # WORD (()) , x {
+                            while c != '}':         # WORD (()) , x { .. } <- doesn't handle WORD : x {({})}
                                 c = _in.read(1)
                                 _out.write(c)
-                        elif c == ';':
+                        elif c == ';':              # WORD (()) : x ; [?] - dunno if this is ever entered. Ternary operator?
                             _out.write(c)
                             paran_pass = False
-                elif c == '{':
+                elif c == '{':                      # WORD (()) : x () {
                     _out.write(c)
-                    if paran_pass == True:
+                    if paran_pass == True:          # possible function declaration.
                         _out.write(pad(__line_to_add_in_func))
                         paran_pass = False
                         block_count += 1
@@ -200,7 +195,7 @@ def lineadder(__line_to_add_in_file, __line_to_add_in_func, __in_filename, __out
                                 block_count += 1
                             elif c == '}':
                                 block_count -= 1
-                else:
+                else:                               # every other case - ignore.
                     _out.write(c)
     end_time = time.time()
     print("lineadder \t-- %s seconds --" % (end_time - start_time))
@@ -221,6 +216,24 @@ def addlinetofilesinfolder(__line_to_add_in_file='/* LINEADDER FILE TEST */',
 
 
 if __name__ == '__main__':
-    addlinetofilesinfolder(line_to_add_in_file, line_to_add_in_func, './../code/Controller/')
-    addlinetofilesinfolder(line_to_add_in_file, line_to_add_in_func, './../code/Model/')
-    addlinetofilesinfolder(line_to_add_in_file, line_to_add_in_func, './../code/View/')
+    passed_one = 0
+    if len(argv) == 1:
+        print('Not enough arguments.')
+        exit()
+    for i, arg in enumerate(argv):
+        if i == 0:
+            pass
+        elif arg == 'C' or arg == 'c':
+            passed_one += 1
+            addlinetofilesinfolder(line_to_add_in_file, line_to_add_in_func, './../code/Controller/')
+        elif arg == 'M' or arg == 'm':
+            passed_one += 1
+            addlinetofilesinfolder(line_to_add_in_file, line_to_add_in_func, './../code/Model/')
+        elif arg == 'V' or arg == 'v':
+            passed_one += 1
+            addlinetofilesinfolder(line_to_add_in_file, line_to_add_in_func, './../code/View/')
+        else:
+            print('Unknown argument \'', arg, '\'. Argument ignored.', sep='')
+    if len(argv) > 1 and passed_one == 0:
+        print('All arguments invalid.')
+        exit()

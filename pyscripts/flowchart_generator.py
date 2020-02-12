@@ -1,8 +1,16 @@
 from graphviz import Digraph
+from sys import argv
 
-project_name = 'merge_dialog_bug'
-log_file = '/tracker/' + project_name + '.txt'
-export_path = '/flowchart/' + project_name
+if len(argv) == 1:
+	print('Not enough arguments.')
+	exit()
+elif len(argv) > 2:
+	print('Too many arguments.')
+	exit()
+
+project_name = argv[1]
+log_file = './tracker/' + project_name + '.txt'
+export_path = './flowchart/' + project_name
 
 
 d = Digraph(project_name, filename=export_path, node_attr={'colorscheme': 'pastel13', 'fillcolor' : '2', 'style': 'filled', 'shape' : 'record'})
@@ -24,17 +32,18 @@ with open(log_file) as f:
 		else:
 			splits = line.split()
 			n = len(splits)
-			first = splits[0]
-			last = splits[n-1]
-			last = '.'.join(last.split('::'))
-			if first == START:
-				filtered_lines.append(last)
-				fl_index += 1
-				print
-			elif first == END:
-				if filtered_lines[fl_index-1] != last:
+			if n >= 2:
+				first = splits[0]
+				last = splits[n-1]
+				last = '.'.join(last.split('::'))
+				if first == START:
 					filtered_lines.append(last)
-					fl_index+=1
+					fl_index += 1
+					print
+				elif first == END:
+					if filtered_lines[fl_index-1] != last:
+						filtered_lines.append(last)
+						fl_index+=1
 
 print('Creating nested clusters and nodes')
 
