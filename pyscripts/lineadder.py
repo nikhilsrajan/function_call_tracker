@@ -44,7 +44,7 @@ def stripcomments(__in_filename, __out_filename):
                         if c == '\\':
                             c = _in.read(1)
                             _out.write(c)
-                        elif c == '"':
+                        elif c == '"' or not c:
                             break
                 else:
                     _out.write(c)
@@ -125,7 +125,7 @@ def lineadder(__line_to_add_in_file, __line_to_add_in_func, __in_filename, __out
                         if c == '\\':               # ignore the character that comes after backslash
                             c = _in.read(1)
                             _out.write(c)
-                        elif c == '\n':             # ... till new line character is encountered.
+                        elif c == '\n' or not c:    # ... till new line character is encountered.
                             break
                 elif isalpha(c):                    # is the character is an alphabet ...
                     _out.write(c)

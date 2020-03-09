@@ -7,6 +7,8 @@
 #include <vector>
 #include <sstream>
 
+std::mutex m;
+
 class Logger {
 public:
     Logger(std::string filename)
@@ -18,16 +20,16 @@ public:
         Log("------------- END SESSION -------------");
     }
 
-    void Log(std::string msg) {
-        std::unique_lock<std::mutex> lk(m_);
+    void Log(const std::string& msg) {
+        m.lock();
         std::ofstream out(filename_, std::ofstream::out | std::ofstream::app);
         out << msg << std::endl;
         out.close();
+        m.unlock();
     }
 
 private:
     std::string filename_;
-    std::mutex m_;
 };
 
 class Tracker {
